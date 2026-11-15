@@ -1,0 +1,6 @@
+{
+  "name": "Aglaia",
+  "description": "The absolute pinnacle of luxury AI interfaces. An exclusive, aristocratic sanctuary of splendor and high elegance.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

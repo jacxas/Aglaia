@@ -1,0 +1,97 @@
+{
+  "messages": [],
+  "scratchpads": [
+    {
+      "title": "aglaia_manifesto",
+      "content": "1. El Oráculo de Aglaia opera con absoluta reserva física.\n2. El latido del oráculo reside en el motor de inferencia local de hardware.\n3. Privacidad aristocrática e intelectual infranqueable.",
+      "updated_at": "11/15/2026, 1:39:56 AM"
+    }
+  ],
+  "agentLogs": [
+    {
+      "id": 1,
+      "type": "info",
+      "message": "SQLite database backup downloaded (aglaia_sqlite_backup_2026-11-15T03-29-06-797Z.db: 0 logs, 1 scratchpads, 0 messages) in 13ms.",
+      "timestamp": "03:29:06 AM",
+      "createdAtMs": 1794713346807,
+      "meta": {
+        "toolName": "SQLiteBackup",
+        "durationMs": 13,
+        "status": "success",
+        "context": "local",
+        "source": "database_backup"
+      }
+    },
+    {
+      "id": 2,
+      "type": "info",
+      "message": "Manual update: Saved scratchpad 'temp_vacuum_check'",
+      "timestamp": "03:41:06 AM",
+      "createdAtMs": 1794714066891
+    },
+    {
+      "id": 3,
+      "type": "info",
+      "message": "Manual update: Deleted scratchpad 'temp_vacuum_check'",
+      "timestamp": "03:41:06 AM",
+      "createdAtMs": 1794714066899
+    },
+    {
+      "id": 4,
+      "type": "info",
+      "message": "SQLite database compacted in 2ms (Auto-Vacuum: INCREMENTAL; Reclaimed 0 B / 0.0 KB; Freelist 0 -> 0 pages, freed 0).",
+      "timestamp": "03:41:06 AM",
+      "createdAtMs": 1794714066907,
+      "meta": {
+        "toolName": "SQLiteCompact",
+        "durationMs": 2,
+        "status": "success",
+        "context": "local",
+        "source": "database_compact"
+      }
+    },
+    {
+      "id": 5,
+      "type": "info",
+      "message": "SQLite database backup downloaded (aglaia_sqlite_backup_2026-11-15T03-41-06-922Z.db: 4 logs, 1 scratchpads, 0 messages) in 3ms.",
+      "timestamp": "03:41:06 AM",
+      "createdAtMs": 1794714066923,
+      "meta": {
+        "toolName": "SQLiteBackup",
+        "durationMs": 3,
+        "status": "success",
+        "context": "local",
+        "source": "database_backup"
+      }
+    },
+    {
+      "id": 6,
+      "type": "tool",
+      "message": "[QUEUE · CRITICAL] 'Task Queue Smoke Check' executed 'calculateExpression' in 1ms.",
+      "timestamp": "03:44:37 AM",
+      "createdAtMs": 1794714277639,
+      "meta": {
+        "toolName": "calculateExpression",
+        "durationMs": 1,
+        "status": "success",
+        "context": "local",
+        "source": "task_queue"
+      }
+    },
+    {
+      "id": 7,
+      "type": "tool",
+      "message": "[QUEUE · HIGH] 'Task Queue Smoke Check' executed 'listScratchpads' in 1ms.",
+      "timestamp": "03:44:37 AM",
+      "createdAtMs": 1794714277668,
+      "meta": {
+        "toolName": "listScratchpads",
+        "durationMs": 1,
+        "status": "success",
+        "context": "local",
+        "source": "task_queue"
+      }
+    }
+  ],
+  "nextLogId": 8
+}
