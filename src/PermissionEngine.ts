@@ -226,7 +226,12 @@ export class PermissionEngine {
     let policyRuleTriggered: string | undefined;
 
     const serializedInput = JSON.stringify(input || {});
-    const lowered = serializedInput.toLowerCase();
+    // Valores crudos sin escapes de JSON: "C:\\Windows" en crudo necesita un solo backslash para matchear.
+    const rawInput = Object.values(input || {})
+      .map((value) => (typeof value === 'string' ? value : JSON.stringify(value)))
+      .join(' \n ');
+    const haystack = `${serializedInput}\n${rawInput}`;
+    const lowered = haystack.toLowerCase();
 
     // 1. Destructive command detection -> critical
     let hasDestructiveSignal = false;
@@ -237,7 +242,7 @@ export class PermissionEngine {
       { regex: /:\(\)\s*\{/, label: 'fork_bomb_pattern' },
     ];
     for (const pattern of destructivePatterns) {
-      if (pattern.regex.test(serializedInput)) {
+      if (pattern.regex.test(haystack)) {
         hasDestructiveSignal = true;
         effectiveRisk = elevateRisk(effectiveRisk, 'critical');
         matchedSignals.push(pattern.label);
@@ -255,7 +260,7 @@ export class PermissionEngine {
       { regex: /\b(\.env|secrets\.json|credentials\.json|id_rsa|\.pem|\.key)\b/i, label: 'sensitive_secret_file' },
     ];
     for (const pattern of secretPatterns) {
-      if (pattern.regex.test(serializedInput)) {
+      if (pattern.regex.test(haystack)) {
         hasSecretSignal = true;
         const escalated: RiskLevel =
           tool.name.includes('write') || tool.name.includes('execute') || tool.name.includes('post')

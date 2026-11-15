@@ -59,8 +59,13 @@ metadata.json             manifiesto de app (export de AI Studio Build)
 
 ## Estado
 
-Prototipo funcional. Origen: export de **Google AI Studio Build**, reordenado y documentado por JACXAS.
-Pendiente para producto: tests automatizados, autenticación multiusuario, rate limiting, empaquetado de escritorio y landing pública.
+Prototipo funcional con **tests automatizados** sobre el motor de permisos (10 casos: vetos, patrones destructivos, credenciales, rutas protegidas, trusted/always-confirm).
+Origen: export de **Google AI Studio Build**, reordenado y documentado por JACXAS.
+Pendiente para producto: autenticación multiusuario, rate limiting, empaquetado de escritorio y landing pública.
+
+```bash
+npm test   # suite del PermissionEngine
+```
 
 ## Licencia
 
