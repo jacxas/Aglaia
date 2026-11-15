@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Datos locales (no versionar)
+*.db
+*.db-journal
+aglaia_data.json
