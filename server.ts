@@ -5,6 +5,8 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { dbService } from "./src/db";
 import { TOOL_REGISTRY, OrbiterCore } from "./src/orbiter";
 import { analyzeAgentLogs } from "./src/logAnalytics";
+import { getLlmStatus, callOpenAICompatibleChat, OpenAIMessage, OpenAIToolDeclaration } from "./src/llmProvider";
+import { startTelegramBridge, getTelegramStatus } from "./src/telegramBridge";
 
 dotenv.config();
 
@@ -727,6 +729,14 @@ app.post("/api/orbiter/simulate-step", async (req, res) => {
   }
 });
 
+app.get("/api/llm/status", (_req, res) => {
+  res.json(getLlmStatus());
+});
+
+app.get("/api/telegram/status", (_req, res) => {
+  res.json(getTelegramStatus());
+});
+
 // LLM Chat endpoint with persistent SQLite memory, Google Search Grounding & Tool-Calling Loop
 app.post("/api/chat", async (req, res) => {
   const { message, history, enableGoogleSearch = true } = req.body;
@@ -782,6 +792,100 @@ app.post("/api/chat", async (req, res) => {
     const querySet = new Set<string>();
     let iterations = 0;
     let finalOutput = "";
+
+    const llmStatus = getLlmStatus();
+    if (llmStatus.provider === "openai-compatible") {
+      const openAIMessages: OpenAIMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...(Array.isArray(history)
+          ? history.map((h: any) => ({
+              role: (h.sender === "user" ? "user" : "assistant") as "user" | "assistant",
+              content: String(h.text || ""),
+            }))
+          : []),
+        { role: "user", content: message },
+      ];
+
+      const openAITools: OpenAIToolDeclaration[] = localDeclarations.map((decl) => ({
+        type: "function",
+        function: {
+          name: decl.name,
+          description: decl.description,
+          parameters: decl.parameters as Record<string, any>,
+        },
+      }));
+
+      while (!isFinished && iterations < 5) {
+        iterations++;
+        const iterStartedAt = Date.now();
+        let llmResult;
+        try {
+          llmResult = await callOpenAICompatibleChat({
+            messages: openAIMessages,
+            tools: openAITools,
+          });
+        } catch (toolErr: any) {
+          // Fallback without tools if the uncensored/local model doesn't support tool_calls
+          llmResult = await callOpenAICompatibleChat({
+            messages: openAIMessages,
+          });
+        }
+
+        if (llmResult.toolCalls.length > 0) {
+          openAIMessages.push(llmResult.rawMessage);
+          for (const tc of llmResult.toolCalls) {
+            const toolStartedAt = Date.now();
+            const toolResp = await fetch(`http://127.0.0.1:${PORT}/api/tools/execute`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ toolName: tc.name, args: tc.args || {}, source: "chat" }),
+            });
+            const toolResult = await toolResp.json();
+            steps.push({
+              iteration: iterations,
+              toolName: tc.name,
+              args: tc.args,
+              result: toolResult,
+              durationMs: Date.now() - toolStartedAt,
+            });
+            openAIMessages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              name: tc.name,
+              content: JSON.stringify(toolResult),
+            });
+          }
+        } else {
+          finalOutput = llmResult.content || "";
+          isFinished = true;
+        }
+
+        await dbService.addAgentLog("planner", `Iteración ${iterations} (${llmStatus.model})`, {
+          toolName: llmStatus.model,
+          status: "info",
+          durationMs: Date.now() - iterStartedAt,
+          source: "chat",
+        });
+      }
+
+      if (!finalOutput) {
+        finalOutput = "He completado el análisis, aunque el modelo no devolvió texto adicional.";
+      }
+
+      const modelMsgId = `model-${Date.now()}`;
+      const modelTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      await dbService.saveMessage(modelMsgId, "assistant", finalOutput, modelTimestamp);
+
+      return res.json({
+        text: finalOutput,
+        steps,
+        sources: [],
+        queries: [],
+        provider: llmStatus.provider,
+        model: llmStatus.model,
+        durationMs: Date.now() - turnStartedAt,
+      });
+    }
 
     while (!isFinished && iterations < 5) {
       iterations++;
@@ -1056,6 +1160,41 @@ async function bootstrap() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🦞 Claws backend ready and running at http://localhost:${PORT}`);
+    const telegramSessions = new Map<number, Array<{ sender: "user" | "assistant"; text: string }>>();
+    startTelegramBridge({
+      getStatusText: () => {
+        const llm = getLlmStatus();
+        return `Aglaia operativa.\nProveedor LLM: ${llm.provider} (${llm.model})\nConfigurado: ${llm.configured ? "Sí" : "No"}`;
+      },
+      onClear: async (chatId) => {
+        telegramSessions.delete(chatId);
+      },
+      onMessage: async (chatId, text, username) => {
+        const history = telegramSessions.get(chatId) || [];
+        const userMessage = username ? `[Telegram @${username}] ${text}` : text;
+        const resp = await fetch(`http://127.0.0.1:${PORT}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userMessage,
+            history,
+            enableGoogleSearch: true,
+          }),
+        });
+        const data: any = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data?.error || "Chat error");
+        }
+        const replyText = data.text || "Sin respuesta.";
+        const updatedHistory = [
+          ...history,
+          { sender: "user" as const, text: userMessage },
+          { sender: "assistant" as const, text: replyText },
+        ].slice(-20);
+        telegramSessions.set(chatId, updatedHistory);
+        return replyText;
+      },
+    });
   });
 }
 
