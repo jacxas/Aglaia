@@ -7,6 +7,7 @@ import { TOOL_REGISTRY, OrbiterCore } from "./src/orbiter";
 import { analyzeAgentLogs } from "./src/logAnalytics";
 import { getLlmStatus, callOpenAICompatibleChat, OpenAIMessage, OpenAIToolDeclaration } from "./src/llmProvider";
 import { startTelegramBridge, getTelegramStatus } from "./src/telegramBridge";
+import { fetchManifest, listCachedModels, downloadWithResume } from "./src/modelLoader";
 
 dotenv.config();
 
@@ -735,6 +736,41 @@ app.get("/api/llm/status", (_req, res) => {
 
 app.get("/api/telegram/status", (_req, res) => {
   res.json(getTelegramStatus());
+});
+
+app.get("/api/models/cache", (_req, res) => {
+  try {
+    res.json({ models: listCachedModels() });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to list cached models" });
+  }
+});
+
+app.get("/api/models/manifest", async (req, res) => {
+  try {
+    const manifestUrl = typeof req.query.url === "string" ? req.query.url : undefined;
+    const manifest = await fetchManifest(manifestUrl);
+    res.json(manifest);
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || "Failed to fetch manifest" });
+  }
+});
+
+app.post("/api/models/download", async (req, res) => {
+  const { url, filename, sha256 } = req.body || {};
+  if (!url || !filename) {
+    return res.status(400).json({ error: "Both 'url' and 'filename' are required." });
+  }
+  try {
+    const result = await downloadWithResume({
+      url,
+      filename,
+      expectedSha256: sha256,
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Model download failed" });
+  }
 });
 
 // LLM Chat endpoint with persistent SQLite memory, Google Search Grounding & Tool-Calling Loop
