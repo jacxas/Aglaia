@@ -8,6 +8,7 @@ import { analyzeAgentLogs } from "./src/logAnalytics";
 import { getLlmStatus, callOpenAICompatibleChat, OpenAIMessage, OpenAIToolDeclaration } from "./src/llmProvider";
 import { startTelegramBridge, getTelegramStatus } from "./src/telegramBridge";
 import { fetchManifest, listCachedModels, downloadWithResume } from "./src/modelLoader";
+import { localEngine } from "./src/engineManager";
 
 dotenv.config();
 
@@ -771,6 +772,30 @@ app.post("/api/models/download", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err?.message || "Model download failed" });
   }
+});
+
+app.get("/api/engine/status", (_req, res) => {
+  res.json(localEngine.getStatus());
+});
+
+app.post("/api/engine/start", async (req, res) => {
+  const { modelPath, loraPath } = req.body || {};
+  if (!modelPath) {
+    return res.status(400).json({ error: "'modelPath' is required." });
+  }
+  try {
+    const baseUrl = await localEngine.start(modelPath, loraPath);
+    process.env.LLM_PROVIDER = "openai-compatible";
+    process.env.LLM_BASE_URL = baseUrl;
+    res.json({ ok: true, baseUrl, status: localEngine.getStatus() });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to start local engine" });
+  }
+});
+
+app.post("/api/engine/stop", async (_req, res) => {
+  await localEngine.stop();
+  res.json({ ok: true, status: localEngine.getStatus() });
 });
 
 // LLM Chat endpoint with persistent SQLite memory, Google Search Grounding & Tool-Calling Loop
